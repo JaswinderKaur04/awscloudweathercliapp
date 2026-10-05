@@ -41,6 +41,40 @@ WEATHER_CODES = {
     99: "Thunderstorm with heavy hail",
 }
 
+# Weather code -> terminal symbol (padded to 3 chars for alignment)
+WEATHER_SYMBOLS = {
+    0: "*",
+    1: "*",
+    2: "*.",
+    3: "=",
+    45: "%",
+    48: "%",
+    51: ".,",
+    53: ".,",
+    55: ".,",
+    56: "*.,",
+    57: "*.,",
+    61: "/",
+    63: "//",
+    65: "///",
+    66: "*/",
+    67: "*//",
+    71: "o",
+    73: "oo",
+    75: "ooo",
+    77: "o",
+    80: "/|",
+    81: "//|",
+    82: "///|",
+    85: "o|",
+    86: "oo|",
+    95: "!/!",
+    96: "!/o!",
+    99: "!//!",
+}
+
+FALLBACK_SYMBOL = "?"
+
 
 def parse_args():
     """Parse command-line arguments."""
@@ -86,16 +120,19 @@ def fetch_weather(lat, lon, units):
 
 
 def build_table(rows):
-    """Build a simple ASCII table from a list of (label, value) pairs."""
-    label_width = max(len(label) for label, _ in rows)
-    value_width = max(len(value) for _, value in rows)
-    total = label_width + value_width + 7  # 3 spaces + 2 pipes + 2 padding
-    border = "+" + "-" * (total - 2) + "+"
+    """Build a star-framed table from a list of (symbol, label, value) triples."""
+    sym_width = max(len(symbol) for symbol, _, _ in rows)
+    label_width = max(len(label) for _, label, _ in rows)
+    value_width = max(len(value) for _, _, value in rows)
+    total = sym_width + label_width + value_width + 10
+    border = "*" + "*" * (total - 2) + "*"
 
     lines = [border]
-    for label, value in rows:
+    for symbol, label, value in rows:
         lines.append(
-            "| {:<{}} | {:<{}} |".format(label, label_width, value, value_width)
+            "* {:<{}} * {:<{}} * {:<{}} *".format(
+                symbol, sym_width, label, label_width, value, value_width
+            )
         )
     lines.append(border)
     return "\n".join(lines)
@@ -116,24 +153,29 @@ def main():
     current = weather["current_weather"]
     temp_unit = "deg C" if args.units == "metric" else "deg F"
     wind_unit = "km/h" if args.units == "metric" else "mph"
-    condition = WEATHER_CODES.get(current["weathercode"], "Unknown")
+    code = current["weathercode"]
+    condition = WEATHER_CODES.get(code, "Unknown")
+    symbol = WEATHER_SYMBOLS.get(code, FALLBACK_SYMBOL)
 
     rows = [
-        ("City", location.get("name", args.city)),
-        ("Region", "{}, {}".format(
+        ("*", "City", location.get("name", args.city)),
+        ("*", "Region", "{}, {}".format(
             location.get("admin1", ""), location.get("country", "")
         ).strip(", ")),
-        ("Latitude", "{:.5f}".format(location["latitude"])),
-        ("Longitude", "{:.5f}".format(location["longitude"])),
-        ("Temperature", "{} {}".format(current["temperature"], temp_unit)),
-        ("Wind Speed", "{} {}".format(current["windspeed"], wind_unit)),
-        ("Wind Direction", "{} deg".format(current["winddirection"])),
-        ("Conditions", condition),
-        ("Observed At", current["time"]),
+        ("+", "Latitude", "{:.5f}".format(location["latitude"])),
+        ("+", "Longitude", "{:.5f}".format(location["longitude"])),
+        ("*", "Temperature", "{} {}".format(current["temperature"], temp_unit)),
+        ("*", "Wind Speed", "{} {}".format(current["windspeed"], wind_unit)),
+        ("*", "Wind Direction", "{} deg".format(current["winddirection"])),
+        (symbol, "Conditions", condition),
+        ("@", "Observed At", current["time"]),
     ]
 
+    title = "Weather for {}".format(args.city)
     print()
-    print("Weather for {}".format(args.city))
+    print("*" * len(title))
+    print("*" + title.center(len(title) + 2) + "*")
+    print("*" * len(title))
     print()
     print(build_table(rows))
     print()
