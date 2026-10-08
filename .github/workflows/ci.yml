@@ -1,18 +1,14 @@
-name: Weather CLI CI
+name: Python CI
 
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   test:
-
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -23,10 +19,24 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install dependencies
+      - name: Check Python files
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m py_compile E_fetch.py
+          python -m py_compile E_cleaning.py
+          python -m py_compile E_main.py
+          python -m py_compile E_visualization.py
 
-      - name: Run tests
-        run: pytest
+      - name: Build Docker image
+        run: docker build -t earthquake-analysis .
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag Docker image
+        run: docker tag earthquake-analysis ${{ secrets.DOCKERHUB_USERNAME }}/earthquake-analysis:latest
+
+      - name: Push Docker image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/earthquake-analysis:latest
